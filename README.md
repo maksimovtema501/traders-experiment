@@ -1,0 +1,2 @@
+# traders-experiment
+Эксперимент трейдеров
