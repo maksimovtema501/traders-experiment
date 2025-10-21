@@ -779,6 +779,30 @@ el('updateChartBtn').addEventListener('click', renderMainChart);
 
 /* ensure admin/trader lists update when data changed (helper) */
 function updateReportFilter(){ const sel = el('reportFilter'); const prev = sel.value || 'all'; sel.innerHTML = '<option value="all">Все</option>'; traders.forEach(t=>{ const o=document.createElement('option'); o.value=t.username; o.textContent = t.name + ' ('+t.username+')'; sel.appendChild(o); }); sel.value = prev || 'all'; }
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAmyyRlggXmgrZFv2_0CziWvOTmbmvaX-4ZTzOKL1qdCoiwJo0Ox-kVgS_kX0KzxBdmQ/exec";
+
+async function sendData() {
+  const data = {
+    name: document.getElementById("name").value,
+    result: document.getElementById("result").value,
+    drawdown: document.getElementById("drawdown").value,
+    emotion: document.getElementById("emotion").value,
+    discipline: document.getElementById("discipline").value
+  };
+
+  const response = await fetch(GOOGLE_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+
+  const res = await response.json();
+  if (res.status === "ok") {
+    alert("✅ Данные успешно сохранены!");
+  } else {
+    alert("❌ Ошибка: " + res.message);
+  }
+}
 
 /* Done */
 </script>
