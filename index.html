@@ -233,6 +233,8 @@
 const LS_USERS = 'lite_invest_users_v2';
 const LS_TRADERS = 'lite_invest_traders_v2';
 const LS_REPORTS = 'lite_invest_reports_v2';
+  /* Google Apps Script URL - ЗАМЕНИТЕ НА ВАШ URL */
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypWeIs9UAFuHW4uEZFNbHAYuGBHl0-s7GbV0deanxlV0gaG6Zm2OcHgGPrz6ncoX2B/exec";
 
 /* Hidden admin credentials (not shown in UI) */
 const HIDDEN_ADMIN = { username:'admin', password:'olimpiada2022', role:'admin', name:'Админ' };
@@ -257,6 +259,32 @@ function loadAll(){
 }
 function toast(msg){ alert(msg); }
 function uid(){ return Math.random().toString(36).slice(2,9); }
+  /* Функция сохранения в Google Sheets */
+async function saveToGoogleSheets(reportData) {
+  try {
+    const data = {
+      name: reportData.name,
+      result: reportData.result,
+      drawdown: reportData.drawdown,
+      emotion: reportData.emotion,
+      discipline: reportData.discipline,
+      date: reportData.dateISO,
+      username: reportData.username
+    };
+
+    const response = await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    return result.status === 'ok';
+  } catch (error) {
+    console.error('Ошибка сохранения в Google Sheets:', error);
+    return false;
+  }
+}
 function randomColorHsl(){ const h = Math.floor(Math.random()*360); return `hsl(${h},70%,55%)`; }
 function genColorFromUsername(u){ let h=0; for(let i=0;i<u.length;i++) h = u.charCodeAt(i) + ((h<<5)-h); return `hsl(${Math.abs(h)%360},70%,55%)`; }
 function hslToHexFromCss(css){
@@ -678,7 +706,41 @@ function renderAdminList(){
 
   // delete buttons
   tbody.querySelectorAll('button').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
+   el('addReport').addEventListener('click', async ()=>{
+  const dateVal = el('repDate').value;
+  if(!dateVal){ showError('reportError','Выберите дату'); return; }
+  let username = el('repTrader').value;
+  if(current.role === 'trader') username = current.username;
+  const t = traders.find(tt=>tt.username === username);
+  if(!t){ showError('reportError','Трейдер не найден'); return; }
+  const res = parseFloat(el('repResult').value);
+  const draw = parseFloat(el('repDraw').value);
+  const emo = parseInt(el('repEmotion').value);
+  const disc = parseInt(el('repDiscipline').value);
+  if(Number.isNaN(res) || Number.isNaN(draw) || Number.isNaN(emo) || Number.isNaN(disc)){ showError('reportError','Заполните все поля корректно'); return; }
+  const dateISO = new Date(dateVal + 'T00:00:00').toISOString();
+  const id = uid();
+  
+  const reportData = { id, dateISO, username: t.username, name: t.name, result: res, drawdown: draw, emotion: emo, discipline: disc };
+  reports.push(reportData);
+  
+  // Сохраняем в Google Таблицы
+  try {
+    const savedToGoogle = await saveToGoogleSheets(reportData);
+    if (!savedToGoogle) {
+      console.warn('Данные не были отправлены в Google Таблицы');
+    }
+  } catch (error) {
+    console.error('Ошибка при отправке в Google Sheets:', error);
+  }
+  
+  recomputeAllSeries();
+  saveAll();
+  el('repResult').value=''; el('repDraw').value=''; el('repEmotion').value=''; el('repDiscipline').value='';
+  hideError('reportError');
+  renderReportsList(el('reportFilter').value);
+  renderLeaderboard(); renderMainChart(); updateQuickStats(); renderMiniChart(t.username);
+});
       const username = e.target.dataset.user;
       if(!confirm('Удалить трейдера и все его отчёты?')) return;
       users = users.filter(u=>u.username !== username);
@@ -779,32 +841,12 @@ el('updateChartBtn').addEventListener('click', renderMainChart);
 
 /* ensure admin/trader lists update when data changed (helper) */
 function updateReportFilter(){ const sel = el('reportFilter'); const prev = sel.value || 'all'; sel.innerHTML = '<option value="all">Все</option>'; traders.forEach(t=>{ const o=document.createElement('option'); o.value=t.username; o.textContent = t.name + ' ('+t.username+')'; sel.appendChild(o); }); sel.value = prev || 'all'; }
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAmyyRlggXmgrZFv2_0CziWvOTmbmvaX-4ZTzOKL1qdCoiwJo0Ox-kVgS_kX0KzxBdmQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypWeIs9UAFuHW4uEZFNbHAYuGBHl0-s7GbV0deanxlV0gaG6Zm2OcHgGPrz6ncoX2B/exec";
 
-async function sendData() {
-  const data = {
-    name: document.getElementById("name").value,
-    result: document.getElementById("result").value,
-    drawdown: document.getElementById("drawdown").value,
-    emotion: document.getElementById("emotion").value,
-    discipline: document.getElementById("discipline").value
-  };
 
-  const response = await fetch(GOOGLE_SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  });
-
-  const res = await response.json();
-  if (res.status === "ok") {
-    alert("✅ Данные успешно сохранены!");
-  } else {
-    alert("❌ Ошибка: " + res.message);
-  }
-}
 
 /* Done */
 </script>
 </body>
 </html>
+
